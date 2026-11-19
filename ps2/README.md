@@ -25,6 +25,7 @@ partidas en la tarjeta de memoria (`mc0:/ODDYSEE`), varios idiomas (`DATA/EN`, `
 - Las cinemáticas de Oddysee (formato de PSX: MDEC + XA) iban a 4 fps porque el decodificador usaba
   `double`, que el EE emula por software. Ahora van a sus 15 fps.
 - RAM: el ELF ocupa 15,4 MB; jugando en Rupture Farms quedan ~4,7 MB libres.
+- Instrucciones y novedades completas: [README_ODDYSEE.md](README_ODDYSEE.md).
 
 ## Updates
 

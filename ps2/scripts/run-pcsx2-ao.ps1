@@ -1,12 +1,12 @@
-# Lanza ODDYSEE.ELF (versión de pruebas, host:) en PCSX2 MINIMIZADO con los datos de Abe's Oddysee
+﻿# Lanza ODDYSEE.ELF (versión de pruebas, host:) en PCSX2 MINIMIZADO con los datos de Abe's Oddysee
 # de Steam, espera, cierra SOLO el PCSX2 que ha lanzado (por PID) y muestra el log de la consola EE.
 # Si ya hay un PCSX2 abierto (otra persona/agente lo está usando) no hace nada y sale con código 2.
-param([int]$Seconds = 40, [string]$InputFile = '', [switch]$SkipFmv, [string]$Shots = '', [string]$Iso = '')
+param([int]$Seconds = 40, [string]$InputFile = '', [switch]$SkipFmv, [string]$Shots = '', [string]$Iso = '', [string]$GameDir = '')
 
 $ErrorActionPreference = 'Stop'
 $root    = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent | Split-Path -Parent
 $elf     = Join-Path $root 'out\ao\ODDYSEE.ELF'
-$game    = 'C:\Program Files (x86)\Steam\steamapps\common\Oddworld Abes Oddysee'
+$game    = if ($GameDir) { $GameDir } else { 'C:\Program Files (x86)\Steam\steamapps\common\Oddworld Abes Oddysee' }
 $pcsx2   = 'C:\Program Files\PCSX2\pcsx2-qt.exe'
 $docs    = [Environment]::GetFolderPath('MyDocuments')
 $logFile = Join-Path $docs 'PCSX2\logs\emulog.txt'
