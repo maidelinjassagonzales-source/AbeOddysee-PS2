@@ -1902,6 +1902,19 @@ EXPORT void CC Input_Init_491BC0()
     sJoyButtonNames_5C9908[8] = "";
     sJoyButtonNames_5C9908[9] = "";
 
+#elif defined(__PS2__)
+    // DualShock 2 names (the SDL gamepad layout, see the bindings above: west, south, east, north,
+    // shoulders, triggers), not the Xbox ones the hints and LCD screens would otherwise show.
+    sJoyButtonNames_5C9908[0] = "SQUARE";
+    sJoyButtonNames_5C9908[1] = "CROSS";
+    sJoyButtonNames_5C9908[2] = "CIRCLE";
+    sJoyButtonNames_5C9908[3] = "TRIANGLE";
+    sJoyButtonNames_5C9908[4] = "L1";
+    sJoyButtonNames_5C9908[5] = "R1";
+    sJoyButtonNames_5C9908[6] = "L2";
+    sJoyButtonNames_5C9908[7] = "R2";
+    sJoyButtonNames_5C9908[8] = "";
+    sJoyButtonNames_5C9908[9] = "";
 #elif USE_SDL3 //TODO Mlg hax
     sJoyButtonNames_5C9908[0] = "X";
     sJoyButtonNames_5C9908[1] = "A";
