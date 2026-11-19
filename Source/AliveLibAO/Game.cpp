@@ -1,5 +1,8 @@
 #include "stdafx_ao.h"
 #include "Game.hpp"
+#include "Ps2CoopAO.hpp"
+#include "Ps2SmoothAO.hpp"
+#include "Ps2Profiler.hpp"
 #include "logger.hpp"
 #include "Function.hpp"
 #include "FixedPoint.hpp"
@@ -407,6 +410,67 @@ EXPORT void CC Game_Shutdown_48E050()
 }
 
 
+#ifdef RELIVE_PS2_HOSTFS
+} // namespace AO
+    #include <malloc.h>
+    #include <unistd.h>
+namespace AO {
+// Test builds: every ~10 s log how much RAM is left: what the heap can still grow into (up to the
+// 1 MB main thread stack at the top of the 32 MB) plus the free space inside the heap.
+static void Ps2_LogFreeMemory()
+{
+    static u32 sLast = 0;
+    if (gnFrameCount_507670 - sLast < 300)
+    {
+        return;
+    }
+    sLast = gnFrameCount_507670;
+    const u32 heapTop = reinterpret_cast<u32>(sbrk(0)) & 0x1FFFFFFF;
+    const u32 stackBottom = 0x02000000 - 0x100000;
+    const struct mallinfo mi = mallinfo();
+    const u32 unclaimed = heapTop < stackBottom ? stackBottom - heapTop : 0;
+    LOG_INFO("[mem] level " << static_cast<s32>(gMap_507BA8.field_0_current_level) << " path " << gMap_507BA8.field_2_current_path
+             << ": heap in use " << mi.uordblks / 1024 << " KB, heap top 0x" << std::hex << heapTop << std::dec
+             << ", free " << (unclaimed + mi.fordblks) / 1024 << " KB (" << unclaimed / 1024 << " never used + " << mi.fordblks / 1024 << " in heap)");
+}
+#endif
+
+// Draws every drawable object (FG1 layers included) and the background into the ordering table.
+// mainPass is false for the PS2 60 fps in-between frame (no autoplayer sync points there).
+static void Game_RenderAllToOt(PrimHeader** ppOt, bool mainPass)
+{
+    if (mainPass)
+    {
+        GetGameAutoPlayer().SyncPoint(SyncPoints::DrawAllStart);
+    }
+    for (s32 i = 0; i < gObjList_drawables_504618->Size(); i++)
+    {
+        BaseGameObject* pDrawable = gObjList_drawables_504618->ItemAt(i);
+        if (!pDrawable)
+        {
+            break;
+        }
+
+        if (pDrawable->field_6_flags.Get(BaseGameObject::eDead_Bit3))
+        {
+            pDrawable->field_6_flags.Clear(BaseGameObject::eCantKill_Bit11);
+        }
+        else if (pDrawable->field_6_flags.Get(BaseGameObject::eDrawable_Bit4))
+        {
+            pDrawable->field_6_flags.Set(BaseGameObject::eCantKill_Bit11);
+            pDrawable->VRender(ppOt);
+        }
+    }
+    if (mainPass)
+    {
+        GetGameAutoPlayer().SyncPoint(SyncPoints::DrawAllEnd);
+    }
+
+    DebugFont_Flush_487F50();
+    PSX_DrawSync_496750(0);
+    pScreenManager_4FF7C8->VRender(ppOt);
+}
+
 EXPORT void CC Game_Loop_437630()
 {
     sBreakGameLoop_507B78 = 0;
@@ -419,6 +483,12 @@ EXPORT void CC Game_Loop_437630()
 
         // Update objects
         GetGameAutoPlayer().SyncPoint(SyncPoints::ObjectsUpdateStart);
+        Ps2Coop_Frame();
+#ifdef RELIVE_PS2_HOSTFS
+        Ps2_LogFreeMemory();
+#endif
+        Ps2Smooth_SnapshotPositions();
+        PS2_PROF_BEGIN(GameUpdate);
         for (s32 i = 0; i < gBaseGameObject_list_9F2DF0->Size(); i++)
         {
             BaseGameObject* pObjIter = gBaseGameObject_list_9F2DF0->ItemAt(i);
@@ -438,6 +508,10 @@ EXPORT void CC Game_Loop_437630()
                     if (pObjIter == pPauseMenu_5080E0)
                     {
                         bPauseMenuObjectFound = true;
+                    }
+                    else if (Ps2Coop_IsPlayer2(pObjIter))
+                    {
+                        Ps2Coop_UpdatePlayer2(pObjIter);
                     }
                     else
                     {
@@ -478,33 +552,15 @@ EXPORT void CC Game_Loop_437630()
             AnimationBase::AnimateAll_4034F0(gObjList_animations_505564);
         }
 
+        PS2_PROF_END(GameUpdate);
+        PS2_PROF_BEGIN(GameRender);
+        // PS2 60 fps: draw a frame halfway between the previous and this game step first.
+        Ps2Smooth_DrawIntermediateFrame([](PrimHeader** ppOtMid) { Game_RenderAllToOt(ppOtMid, false); });
+
         // Render objects
         PrimHeader** ppOt = gPsxDisplay_504C78.field_C_drawEnv[gPsxDisplay_504C78.field_A_buffer_index].field_70_ot_buffer;
-
-        GetGameAutoPlayer().SyncPoint(SyncPoints::DrawAllStart);
-        for (s32 i = 0; i < gObjList_drawables_504618->Size(); i++)
-        {
-            BaseGameObject* pDrawable = gObjList_drawables_504618->ItemAt(i);
-            if (!pDrawable)
-            {
-                break;
-            }
-
-            if (pDrawable->field_6_flags.Get(BaseGameObject::eDead_Bit3))
-            {
-                pDrawable->field_6_flags.Clear(BaseGameObject::eCantKill_Bit11);
-            }
-            else if (pDrawable->field_6_flags.Get(BaseGameObject::eDrawable_Bit4))
-            {
-                pDrawable->field_6_flags.Set(BaseGameObject::eCantKill_Bit11);
-                pDrawable->VRender(ppOt);
-            }
-        }
-        GetGameAutoPlayer().SyncPoint(SyncPoints::DrawAllEnd);
-
-        DebugFont_Flush_487F50();
-        PSX_DrawSync_496750(0);
-        pScreenManager_4FF7C8->VRender(ppOt);
+        Game_RenderAllToOt(ppOt, true);
+        PS2_PROF_END(GameRender);
         SYS_EventsPump_44FF90();
 
         GetGameAutoPlayer().SyncPoint(SyncPoints::RenderOT);

@@ -1,4 +1,5 @@
 #include "stdafx_ao.h"
+#include "Ps2CoopAO.hpp"
 #include "Map.hpp"
 #include "Function.hpp"
 #include "stdlib.hpp"
@@ -1046,6 +1047,11 @@ Camera* Map::GetCamera(CameraPos pos)
 
 s16 Map::SetActiveCameraDelayed_444CA0(MapDirections direction, BaseAliveGameObject* pObj, s16 swapEffect)
 {
+    // PS2 co-op: the camera follows player 1 only; player 2 is pulled back on screen instead.
+    if (Ps2Coop_IsPlayer2(pObj))
+    {
+        return 0;
+    }
     Path_Change* pPathChangeTLV = nullptr;
     CameraSwapEffects convertedSwapEffect = CameraSwapEffects::eInstantChange_0;
     if (pObj)

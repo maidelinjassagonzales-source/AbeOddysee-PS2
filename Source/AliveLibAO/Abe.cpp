@@ -49,6 +49,7 @@
 #include "BirdPortal.hpp"
 #include "Rope.hpp"
 #include "SaveGame.hpp"
+#include "Ps2CoopAO.hpp"
 #include "BeeSwarm.hpp"
 #include "Shrykull.hpp"
 #include "Lever.hpp"
@@ -1133,11 +1134,15 @@ BaseGameObject* Abe::dtor_420C80()
         field_198_pThrowable = nullptr;
     }
 
-    sActiveHero_507678 = nullptr;
+    // PS2 co-op: player 2 going away must not clear player 1's hero slot.
+    if (!Ps2Coop_OnAbeDestroyed(this))
+    {
+        sActiveHero_507678 = nullptr;
 
-    // OG fix for going back to menu with DDCheat on and then it crashes reading a deleted pointer
-    // ditto for the ending where MeatSaw/Invisible switch screen change/update funcs read it.
-    sControlledCharacter_50767C = nullptr;
+        // OG fix for going back to menu with DDCheat on and then it crashes reading a deleted pointer
+        // ditto for the ending where MeatSaw/Invisible switch screen change/update funcs read it.
+        sControlledCharacter_50767C = nullptr;
+    }
 
     return dtor_401000();
 }
@@ -7087,6 +7092,11 @@ void Abe::Motion_60_Dead_42C4C0()
         }
         case 5:
         {
+            // PS2 co-op: player 2 respawns next to player 1 instead of resetting the level.
+            if (Ps2Coop_OnAbeDeathReset(this))
+            {
+                return;
+            }
             Event_Broadcast_417220(kEventDeathReset_4, this);
             if (static_cast<s32>(gnFrameCount_507670) > field_118_timer)
             {

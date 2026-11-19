@@ -31,5 +31,10 @@ bool Ps2Coop_OnAbeDestroyed(const BaseGameObject* pAbe);
 // Draws onto the final ABGR1555 frame; w/h are the visible game area (640x240).
 void Ps2Coop_DrawOverlay(void* pPixels, int pitchBytes, int w, int h);
 
+// For the Oddysee build, whose co-op lives in AliveLibAO/Ps2CoopAO.cpp but shares this overlay:
+// whether a level is being played and player 2 has joined (once per frame), and the notices.
+void Ps2Coop_SetOverlayState(bool inLevel, bool joined);
+void Ps2Coop_ShowNotice(bool joined);
+
 // Render-time tint so the two Abes can be told apart.
 void Ps2Coop_TintPlayer2(const BaseGameObject* pObj, short* r, short* g, short* b);

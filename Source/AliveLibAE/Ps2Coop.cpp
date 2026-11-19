@@ -449,6 +449,24 @@ void Ps2Coop_DrawOverlay(void* pPixels, int pitchBytes, int w, int h)
     }
 }
 
+void Ps2Coop_SetOverlayState(bool inLevel, bool joined)
+{
+    sInLevel = inLevel;
+    sJoined = joined;
+}
+
+void Ps2Coop_ShowNotice(bool joined)
+{
+    if (joined)
+    {
+        ShowNotice(Notice::eJoined, 4000);
+    }
+    else
+    {
+        ShowNotice(Notice::eLeft, 3000);
+    }
+}
+
 void Ps2Coop_TintPlayer2(const BaseGameObject* pObj, short* r, short* g, short* b)
 {
     if (Ps2Coop_IsPlayer2(pObj))
@@ -492,6 +510,14 @@ bool Ps2Coop_OnAbeDestroyed(const BaseGameObject*)
 }
 
 void Ps2Coop_DrawOverlay(void*, int, int, int)
+{
+}
+
+void Ps2Coop_SetOverlayState(bool, bool)
+{
+}
+
+void Ps2Coop_ShowNotice(bool)
 {
 }
 

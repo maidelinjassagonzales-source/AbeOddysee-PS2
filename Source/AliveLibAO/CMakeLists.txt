@@ -1,6 +1,10 @@
 project(AliveLibAO VERSION 0.1 LANGUAGES CXX)
 
 SET(AliveLibSrcAO
+   Ps2CoopAO.cpp
+   Ps2CoopAO.hpp
+   Ps2SmoothAO.cpp
+   Ps2SmoothAO.hpp
    Grid.cpp
    Grid.hpp
    GameAutoPlayer.cpp

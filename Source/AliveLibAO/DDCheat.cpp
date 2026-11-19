@@ -1,4 +1,5 @@
 #include "stdafx_ao.h"
+#include "Ps2CoopAO.hpp"
 #include "DDCheat.hpp"
 #include "PsxDisplay.hpp"
 #include "Psx.hpp"
@@ -206,7 +207,8 @@ EXPORT s32 CC sub_49AD50(s32 /*a1*/)
 
 void DDCheat::VUpdate_4098C0()
 {
-    if (gDDCheatMode_508BF8)
+    // The debug menu is driven by the other pad; in PS2 co-op that pad belongs to player 2.
+    if (gDDCheatMode_508BF8 && !Ps2Coop_IsActive())
     {
         const InputObject::PadIndex otherController = Input().CurrentController() == InputObject::PadIndex::First ? InputObject::PadIndex::Second : InputObject::PadIndex::First;
         Abe* pAbe = sActiveHero_507678;

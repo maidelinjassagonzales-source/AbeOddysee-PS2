@@ -298,6 +298,15 @@ void InputObject::Update(BaseGameAutoPlayer& gameAutoPlayer)
     field_0_pads[0].field_4_previously_pressed = static_cast<u16>(AEInputCommandsToAOInputCommands(MakeAEInputBits(::Input().field_0_pads[0].field_8_previous)).Raw().all);
     field_0_pads[0].field_6_held = static_cast<u16>(AEInputCommandsToAOInputCommands(MakeAEInputBits(::Input().field_0_pads[0].field_C_held)).Raw().all);
     field_0_pads[0].field_8_released = static_cast<u16>(AEInputCommandsToAOInputCommands(MakeAEInputBits(::Input().field_0_pads[0].field_10_released)).Raw().all);
+#ifdef __PS2__
+    // Co-op: the AE input layer reads the second DualShock into its pad 1; player 2's Abe (and what
+    // they possess) reads it here through the active pad index.
+    field_0_pads[1].field_0_pressed = static_cast<u16>(AEInputCommandsToAOInputCommands(MakeAEInputBits(::Input().field_0_pads[1].field_0_pressed)).Raw().all);
+    field_0_pads[1].field_2_dir = ::Input().field_0_pads[1].field_4_dir;
+    field_0_pads[1].field_4_previously_pressed = static_cast<u16>(AEInputCommandsToAOInputCommands(MakeAEInputBits(::Input().field_0_pads[1].field_8_previous)).Raw().all);
+    field_0_pads[1].field_6_held = static_cast<u16>(AEInputCommandsToAOInputCommands(MakeAEInputBits(::Input().field_0_pads[1].field_C_held)).Raw().all);
+    field_0_pads[1].field_8_released = static_cast<u16>(AEInputCommandsToAOInputCommands(MakeAEInputBits(::Input().field_0_pads[1].field_10_released)).Raw().all);
+#endif
 
     // Handle demo input (AO impl)
     if (field_20_demo_playing & 1)
@@ -542,7 +551,12 @@ u16 InputObject::Released() const
 
 Bool32 CC Input_IsChanting_4334C0()
 {
+#ifdef __PS2__
+    // Co-op: read the pad of whoever is being updated (pad 2 for player 2 and what they possess).
+    return (::Input().field_0_pads[sCurrentControllerIndex_5076B8].field_0_pressed & ::InputCommands::Enum::eChant) == ::InputCommands::Enum::eChant;
+#else
     return Input_IsChanting_45F260();
+#endif
 }
 
 void CC Input_SetKeyState_48E610(s32 key, s8 bIsDown)

@@ -5,6 +5,8 @@
 #include "PsxRender.hpp"
 #include "VRam.hpp"
 #include "Primitives.hpp"
+#include "Sys_common.hpp"
+#include <SDL3/SDL.h>
 #include "../AliveLibAE/PsxDisplay.hpp"
 
 namespace AO {
@@ -135,6 +137,32 @@ PsxDisplay* PsxDisplay::ctor_40DAB0(const PSX_Display_Params* pParams)
     return this;
 }
 
+
+#ifdef __PS2__
+} // namespace AO
+s32 PSX_VSync_LastMillisecond(); // AliveLibAE/Psx.cpp
+namespace AO {
+
+void PsxDisplay::PS2_Render_OT_Intermediate()
+{
+    // Single buffer only (the PC/PS2 setup, kDisplayParams): same steps as the real frame below,
+    // but shown one 60 Hz field after the previous real frame and without PSX_VSync, which paces
+    // the 30 fps game step and must run once per step.
+    if (field_6_max_buffers > 1u)
+    {
+        return;
+    }
+    PSX_PutDrawEnv_495DD0(&field_C_drawEnv[0].field_0_draw_env);
+    PSX_DrawOTag_4969F0(field_C_drawEnv[0].field_70_ot_buffer);
+    PSX_DrawSync_496750(0);
+    while (SYS_GetTicks() - PSX_VSync_LastMillisecond() < 1000 / 60)
+    {
+        SDL_Delay(1);
+    }
+    PSX_PutDispEnv_495D30(&field_C_drawEnv[0].field_5C_disp_env);
+    PSX_ClearOTag_496760(field_C_drawEnv[0].field_70_ot_buffer, field_8_buffer_size);
+}
+#endif
 
 void PsxDisplay::PSX_Display_Render_OT_40DD20()
 {

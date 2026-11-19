@@ -10,6 +10,7 @@
 #include "ResourceManager.hpp"
 #include "AnimResources.hpp"
 #include "Particle.hpp"
+#include "Ps2CoopAO.hpp"
 #include "Sfx.hpp"
 #include "Math.hpp"
 #include "../AliveLibCommon/BaseGameAutoPlayer.hpp"
@@ -157,6 +158,7 @@ void BaseAnimatedWithPhysicsGameObject::VRender_417DA0(PrimHeader** ppOt)
                     &b);
             }
 
+            Ps2Coop_TintPlayer2(this, &r, &g, &b);
             field_10_anim.field_8_r = static_cast<u8>(r);
             field_10_anim.field_9_g = static_cast<u8>(g);
             field_10_anim.field_A_b = static_cast<u8>(b);

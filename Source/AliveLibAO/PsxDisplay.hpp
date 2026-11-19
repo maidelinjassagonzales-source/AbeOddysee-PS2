@@ -58,6 +58,10 @@ public:
     EXPORT PsxDisplay* ctor_40DAB0(const PSX_Display_Params* pParams);
 
     EXPORT void PSX_Display_Render_OT_40DD20();
+#ifdef __PS2__
+    // Draws and shows the current ordering table halfway through the 30 fps step (PS2 60 fps mode).
+    void PS2_Render_OT_Intermediate();
+#endif
 
     EXPORT void PutCurrentDispEnv_40DE40();
 
