@@ -14,6 +14,8 @@
 #include "../AliveLibAE/Input.hpp"
 #include "Sound/SDLSoundBuffer.hpp"
 #include "GameAutoPlayer.hpp"
+#include "Ps2Profiler.hpp"
+#include "../AliveLibAE/Ps2CreditsIntro.hpp"
 
 #define NO_WAVE
 #include "Sound/Sound.hpp"
@@ -123,6 +125,7 @@ public:
                     mFrameW = frameW;
                     mFrameH = frameH;
 
+                    PS2_PROF_SCOPE(DdvDecode);
                     mMdec.DecodeFrameToRGBA32((uint16_t*)pixelBuffer.data(), (uint16_t*)mDemuxBuffer.data(), frameW, frameH);
                     //mVideoBuffer.push_back(Frame{ mFrameCounter++, frameW, frameH, pixelBuffer });
                     return true;
@@ -310,8 +313,78 @@ void Movie::VUpdate()
 }
 
 
+#ifdef __PS2__
+// PS2: the decoded RGBA32 frame goes straight to the 16-bit bitmap and to the emulated vram by hand.
+// SDL's converting/scaling blits (RGBA32 -> 16 bit, then 320 -> 640 wide) cost most of the frame on
+// the EE and the movies ran at ~4 fps.
+static void Ps2_RgbaToBitmap(const std::vector<u8>& rgba, s32 w, s32 h, Bitmap& bmp)
+{
+    SDL_Surface* s = bmp.field_0_pSurface;
+    const SDL_PixelFormatDetails* f = SDL_GetPixelFormatDetails(s->format);
+    const bool is565 = f->Gbits == 6;
+    SDL_LockSurface(s);
+    const u8* src = rgba.data();
+    for (s32 y = 0; y < h && y < s->h; y++)
+    {
+        u16* dst = reinterpret_cast<u16*>(static_cast<u8*>(s->pixels) + y * s->pitch);
+        const u8* row = src + y * w * 4;
+        for (s32 x = 0; x < w && x < s->w; x++, row += 4)
+        {
+            const u32 r = row[0], g = row[1], b = row[2];
+            dst[x] = is565 ? static_cast<u16>(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3))
+                           : static_cast<u16>(((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3));
+        }
+    }
+    SDL_UnlockSurface(s);
+}
+
+// Copies the 16-bit frame into the emulated vram at 640x240 (each pixel twice across, rows
+// scaled to 240), so the last frame stays on screen when the movie ends, as SDL's blit did.
+static void Ps2_BitmapToVram(Bitmap& bmp)
+{
+    SDL_Surface* s = bmp.field_0_pSurface;
+    SDL_Surface* v = GetPsxVram().field_0_pSurface;
+    if (!s || !v || s->format != v->format || v->w < 640 || v->h < 240)
+    {
+        SDL_Rect bufferSize = {0, 0, 640, 240};
+        SDL_BlitSurfaceScaled(s, nullptr, v, &bufferSize, SDL_SCALEMODE_NEAREST);
+        return;
+    }
+    SDL_LockSurface(v);
+    for (s32 y = 0; y < 240; y++)
+    {
+        const u16* src = reinterpret_cast<const u16*>(static_cast<const u8*>(s->pixels) + (y * s->h / 240) * s->pitch);
+        u16* dst = reinterpret_cast<u16*>(static_cast<u8*>(v->pixels) + y * v->pitch);
+        if (s->w == 320)
+        {
+            u32* dst2 = reinterpret_cast<u32*>(dst); // vram rows are 4-byte aligned (pitch 2048)
+            for (s32 x = 0; x < 320; x++)
+            {
+                dst2[x] = src[x] * 0x10001u;
+            }
+        }
+        else
+        {
+            for (s32 x = 0, sx = 0; x < 640; x++, sx += s->w)
+            {
+                dst[x] = src[sx / 640];
+            }
+        }
+    }
+    SDL_UnlockSurface(v);
+}
+#endif
+
 static void Render_Str_Frame(Bitmap& tmpBmp)
 {
+#ifdef __PS2__
+    {
+        PS2_PROF_SCOPE(VgaBlit);
+        Ps2_BitmapToVram(tmpBmp);
+    }
+    VGA_CopyToFront_4F3710(&tmpBmp, nullptr);
+    return;
+#endif
     // Copy into the emulated vram - when FMV ends the "screen" still have the last video frame "stick"
     // giving us a nice seamless transition.
     SDL_Rect bufferSize = { 0,0, 640, 240 };
@@ -396,8 +469,33 @@ void Movie::VUpdate_489EA0()
         return;
     }
 
+#ifdef __PS2__
+    // PS2 port: the port credits play once, right before the Oddworld Inhabitants logo.
+    static bool sCreditsShown = false;
+    if (!sCreditsShown && SDL_strncasecmp(sMovieNames_508B08.mNames[sMovieNameIdx_508C0C].mName, "LOGOINT", 7) == 0)
+    {
+        sCreditsShown = true;
+        Ps2_PlayCreditsIntro();
+    }
+#endif
+#ifdef RELIVE_PS2_HOSTFS
+    // Test builds: ps2skipfmv.txt in the game folder skips every movie, to reach gameplay quickly.
+    static const bool sSkipMovies = []()
+    {
+        FILE* f = fopen("ps2skipfmv.txt", "r");
+        if (f)
+        {
+            fclose(f);
+        }
+        return f != nullptr;
+    }();
+    const bool skipThisMovie = sSkipMovies;
+#else
+    const bool skipThisMovie = false;
+#endif
+
     // Open the file
-    void* hMovieFile = GetMovieIO().mIO_Open(sMovieNames_508B08.mNames[sMovieNameIdx_508C0C].mName);
+    void* hMovieFile = skipThisMovie ? nullptr : GetMovieIO().mIO_Open(sMovieNames_508B08.mNames[sMovieNameIdx_508C0C].mName);
 
     // Go to the next movie next time we come in
     if (sMovieNameIdx_508C0C >= 0)
@@ -442,8 +540,15 @@ void Movie::VUpdate_489EA0()
 
     // Till EOF decoding loop
     const auto movieStartTimeStamp = SYS_GetTicks();
-    while (psxStr.DecodeAudioAndVideo())
+    for (;;)
     {
+        {
+            PS2_PROF_SCOPE(DdvRead);
+            if (!psxStr.DecodeAudioAndVideo())
+            {
+                break;
+            }
+        }
         fmv_num_read_frames++;
 
         //
@@ -463,11 +568,18 @@ void Movie::VUpdate_489EA0()
                 BMP_New_4F1990(&tmpBmp, psxStr.mFrameW, psxStr.mFrameH, 15, 0);
             }
 
+#ifdef __PS2__
+            {
+                PS2_PROF_SCOPE(VgaBlit);
+                Ps2_RgbaToBitmap(psxStr.pixelBuffer, psxStr.mFrameW, psxStr.mFrameH, tmpBmp);
+            }
+#else
             // Copy decoded frame to tempSurface
             tempSurface.SetPixels(psxStr.pixelBuffer);
 
             // Copy temp surface to tmpBmp (colour depth conversion)
             tempSurface.BlitScaledTo(tmpBmp.field_0_pSurface);
+#endif
         }
 
         // Check for quitting video every 15 frames

@@ -588,10 +588,17 @@ void PSXMDECDecoder::YUVfunction1(uint8_t arg_image[][4], s32 index, s32 r0, s32
 void PSXMDECDecoder::YUV2RGBA32(int16_t* arg_blk,
                                 uint8_t arg_image[][4])
 {
-    f64 rConstant = 1.402;
-    f64 gConstant = -0.3437;
-    f64 g2Constant = -0.7143;
-    f64 bConstant = 1.772;
+#ifdef __PS2__
+    // The EE has no double precision FPU: doubles here are emulated in software and made every movie
+    // frame cost ~150 ms. Same constants in 10-bit fixed point.
+    #define MDEC_MUL(v, c) static_cast<int16_t>((static_cast<s32>(v) * static_cast<s32>((c) * 1024.0 + ((c) < 0 ? -0.5 : 0.5))) / 1024)
+#else
+    #define MDEC_MUL(v, c) static_cast<int16_t>((v) * (c))
+#endif
+    #define rConstant 1.402
+    #define gConstant -0.3437
+    #define g2Constant -0.7143
+    #define bConstant 1.772
 
     int16_t* yblk = arg_blk + DCT_BLOCK_SIZE * 2;
 
@@ -606,9 +613,9 @@ void PSXMDECDecoder::YUV2RGBA32(int16_t* arg_blk,
             int16_t r0, g0, b0;
 
             // Set up YUV stuff
-            r0 = static_cast<int16_t>(arg_blk[0] * rConstant);
-            g0 = static_cast<int16_t>((arg_blk[DCT_BLOCK_SIZE] * gConstant) + (arg_blk[0] * g2Constant));
-            b0 = static_cast<int16_t>(arg_blk[DCT_BLOCK_SIZE] * bConstant);
+            r0 = MDEC_MUL(arg_blk[0], rConstant);
+            g0 = static_cast<int16_t>(MDEC_MUL(arg_blk[DCT_BLOCK_SIZE], gConstant) + MDEC_MUL(arg_blk[0], g2Constant));
+            b0 = MDEC_MUL(arg_blk[DCT_BLOCK_SIZE], bConstant);
 
             int16_t y = yblk[0] + 128;
             YUVfunction1(arg_image, 0, r0, g0, b0, y);
@@ -624,9 +631,9 @@ void PSXMDECDecoder::YUV2RGBA32(int16_t* arg_blk,
 
 
             // Set up YUV stuff again
-            r0 = static_cast<int16_t>(arg_blk[4] * rConstant);
-            g0 = static_cast<int16_t>((arg_blk[4 + DCT_BLOCK_SIZE] * gConstant) + (arg_blk[4] * g2Constant));
-            b0 = static_cast<int16_t>(arg_blk[4 + DCT_BLOCK_SIZE] * bConstant);
+            r0 = MDEC_MUL(arg_blk[4], rConstant);
+            g0 = static_cast<int16_t>(MDEC_MUL(arg_blk[4 + DCT_BLOCK_SIZE], gConstant) + MDEC_MUL(arg_blk[4], g2Constant));
+            b0 = MDEC_MUL(arg_blk[4 + DCT_BLOCK_SIZE], bConstant);
 
             y = yblk[DCT_BLOCK_SIZE + 0] + 128;
             YUVfunction1(arg_image, 8, r0, g0, b0, y);
@@ -642,6 +649,12 @@ void PSXMDECDecoder::YUV2RGBA32(int16_t* arg_blk,
         }
     }
 }
+
+#undef MDEC_MUL
+#undef rConstant
+#undef gConstant
+#undef g2Constant
+#undef bConstant
 
 uint8_t PSXMDECDecoder::DecodeFrameToRGBA32(uint16_t* arg_decoded_image,
                                             uint16_t* arg_bs_image,

@@ -4,6 +4,13 @@
 #include "Types.hpp"
 
 // Pos / neg Tables
+#ifdef __PS2__
+// No double precision FPU on the EE (software emulated): the filter history is integer anyway.
+using AdpcmHist = s32;
+#else
+using AdpcmHist = f64;
+#endif
+
 const s16 pos_adpcm_table[5] = {0, +60, +115, +98, +122};
 const s16 neg_adpcm_table[5] = {0, 0, -52, -55, -60};
 
@@ -42,8 +49,8 @@ static void DecodeBlock(
     u8 block,
     u8 nibble,
     s16& dst,
-    f64& old,
-    f64& older)
+    AdpcmHist& old,
+    AdpcmHist& older)
 {
     // 4 blocks for each nibble, so 8 blocks total
     const s32 shift = static_cast<u8>(12 - (parameters[4 + block * 2 + nibble] & 0xF));
@@ -72,12 +79,12 @@ template <class T>
 static void Decode(const PSXADPCMDecoder::SoundFrame& sf, T& out)
 {
     s16 dstLeft = 0;
-    static f64 oldLeft = 0;
-    static f64 olderLeft = 0;
+    static AdpcmHist oldLeft = 0;
+    static AdpcmHist olderLeft = 0;
 
     s16 dstRight = 1;
-    static f64 oldRight = 0;
-    static f64 olderRight = 0;
+    static AdpcmHist oldRight = 0;
+    static AdpcmHist olderRight = 0;
 
     for (s32 i = 0; i < 18; i++)
     {
