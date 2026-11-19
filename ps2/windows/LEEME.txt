@@ -14,6 +14,10 @@ The game picks the PS2 system language (EN, ES, FR, DE, IT).
 
 Español: instala el juego en Steam, haz doble clic en CrearISO.bat y carga la ISO en OPL o PCSX2.
 
+Abe's Oddysee: the same tool builds SLUS_999.97.ABE_ODDYSEE_PS2.iso when ODDYSEE.ELF is next to
+CrearISO.bat (or with -Juego AO). Saves go to mc0:/ODDYSEE.
+Abe's Oddysee: con ODDYSEE.ELF junto a CrearISO.bat, la misma herramienta crea la ISO de Oddysee.
+
 Source code: https://github.com/maidelinjassagonzales-source/AbeExoddus-PS2
 Engine: R.E.L.I.V.E. by the AliveTeam (https://aliveteam.github.io/)
 Not affiliated with Oddworld Inhabitants.

@@ -1,7 +1,7 @@
 # Lanza ODDYSEE.ELF (versión de pruebas, host:) en PCSX2 MINIMIZADO con los datos de Abe's Oddysee
 # de Steam, espera, cierra SOLO el PCSX2 que ha lanzado (por PID) y muestra el log de la consola EE.
 # Si ya hay un PCSX2 abierto (otra persona/agente lo está usando) no hace nada y sale con código 2.
-param([int]$Seconds = 40, [string]$InputFile = '', [switch]$SkipFmv, [string]$Shots = '')
+param([int]$Seconds = 40, [string]$InputFile = '', [switch]$SkipFmv, [string]$Shots = '', [string]$Iso = '')
 
 $ErrorActionPreference = 'Stop'
 $root    = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent | Split-Path -Parent
@@ -21,7 +21,12 @@ if ($InputFile) { Copy-Item $InputFile (Join-Path $game 'ps2input.txt') -Force }
 if ($SkipFmv) { Set-Content (Join-Path $game 'ps2skipfmv.txt') '1' }
 Remove-Item (Join-Path $game 'ps2shot_*.bmp') -ErrorAction SilentlyContinue
 
-$p = Start-Process -FilePath $pcsx2 -ArgumentList @('-fastboot', '-elf', "`"$target`"") -PassThru -WindowStyle Minimized
+if ($Iso) {
+  # Disc test: boot the ISO like a real disc (no host:, no scripted input or frame dumps).
+  $p = Start-Process -FilePath $pcsx2 -ArgumentList @('-fastboot', '--', "`"$Iso`"") -PassThru -WindowStyle Minimized
+} else {
+  $p = Start-Process -FilePath $pcsx2 -ArgumentList @('-fastboot', '-elf', "`"$target`"") -PassThru -WindowStyle Minimized
+}
 "PCSX2 PID $($p.Id)"
 Start-Sleep -Seconds $Seconds
 Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue

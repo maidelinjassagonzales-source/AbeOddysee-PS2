@@ -1,8 +1,11 @@
-# Abe's Exoddus PS2 - ISO builder for Windows (no extra software needed).
-# Finds your Steam copy of Oddworld: Abe's Exoddus and builds a PS2 ISO with it and EXODDUS.ELF.
+# Abe's Exoddus / Abe's Oddysee PS2 - ISO builder for Windows (no extra software needed).
+# Finds your Steam copy of the game and builds a PS2 ISO with it and the port's ELF.
+# The game is chosen by the ELF next to this script: ODDYSEE.ELF -> Abe's Oddysee, EXODDUS.ELF ->
+# Abe's Exoddus (or force it with -Juego AO / -Juego AE).
 # Usage: double-click CrearISO.bat, or:
-#   powershell -ExecutionPolicy Bypass -File CrearISO.ps1 [-Game <folder>] [-Extra EN=<folder>,FR=<folder>] [-Out <file.iso>]
+#   powershell -ExecutionPolicy Bypass -File CrearISO.ps1 [-Juego AE|AO] [-Game <folder>] [-Extra EN=<folder>,FR=<folder>] [-Out <file.iso>]
 param(
+    [string]$Juego = "",
     [string]$Game = "",
     [string[]]$Extra = @(),
     [string]$Out = "",
@@ -10,9 +13,24 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-if (-not $Elf) { $Elf = Join-Path $here 'EXODDUS.ELF' }
-if (-not $Out) { $Out = Join-Path $here 'SLUS_999.98.ABE_EXODDUS_PS2.iso' }
-if (-not (Test-Path $Elf)) { throw "EXODDUS.ELF not found next to this script ($Elf)." }
+
+$games = @{
+    AE = @{ Title = "Oddworld: Abe's Exoddus"; Elf = 'EXODDUS.ELF'; Id = 'SLUS_999.98'; Volume = 'ABE_EXODDUS'
+            AppId = 15710; Folder = 'Oddworld Abes Exoddus'; Probe = 'st.lvl'; Iso = 'SLUS_999.98.ABE_EXODDUS_PS2.iso' }
+    AO = @{ Title = "Oddworld: Abe's Oddysee"; Elf = 'ODDYSEE.ELF'; Id = 'SLUS_999.97'; Volume = 'ABE_ODDYSEE'
+            AppId = 15700; Folder = 'Oddworld Abes Oddysee'; Probe = 's1.lvl'; Iso = 'SLUS_999.97.ABE_ODDYSEE_PS2.iso' }
+}
+if (-not $Juego) {
+    if ($Elf) { $Juego = if ((Split-Path $Elf -Leaf) -ieq 'ODDYSEE.ELF') { 'AO' } else { 'AE' } }
+    elseif (Test-Path (Join-Path $here 'ODDYSEE.ELF')) { $Juego = 'AO' }
+    else { $Juego = 'AE' }
+}
+$g = $games[$Juego.ToUpper()]
+if (-not $g) { throw "-Juego must be AE (Exoddus) or AO (Oddysee)." }
+if (-not $Elf) { $Elf = Join-Path $here $g.Elf }
+if (-not $Out) { $Out = Join-Path $here $g.Iso }
+if (-not (Test-Path $Elf)) { throw "$($g.Elf) not found next to this script ($Elf)." }
+Write-Host "$($g.Title) PS2 -> $($g.Id)"
 
 $langCodes = @{ english = 'EN'; spanish = 'ES'; french = 'FR'; german = 'DE'; italian = 'IT' }
 
@@ -34,8 +52,8 @@ function Find-SteamGame {
         }
     }
     foreach ($l in ($libs | Select-Object -Unique)) {
-        $manifest = Join-Path $l 'steamapps\appmanifest_15710.acf'
-        $dir = Join-Path $l 'steamapps\common\Oddworld Abes Exoddus'
+        $manifest = Join-Path $l "steamapps\appmanifest_$($g.AppId).acf"
+        $dir = Join-Path $l "steamapps\common\$($g.Folder)"
         if ((Test-Path $manifest) -and (Test-Path $dir)) {
             $lang = 'english'
             $mm = [regex]::Match((Get-Content $manifest -Raw), '"language"\s+"([^"]+)"')
@@ -51,7 +69,7 @@ if ($Game) {
     $sets['EN'] = $Game
 } else {
     $found = Find-SteamGame
-    if (-not $found) { throw "Oddworld: Abe's Exoddus (Steam) not found. Run with -Game <game folder>." }
+    if (-not $found) { throw "$($g.Title) (Steam) not found. Run with -Game <game folder>." }
     $code = $langCodes[$found.Lang]
     if (-not $code) { $code = 'EN' }
     $sets[$code] = $found.Dir
@@ -65,12 +83,13 @@ foreach ($e in ($Extra | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 Add-Type -TypeDefinition (Get-Content (Join-Path $here 'Ps2Iso.cs') -Raw) -Language CSharp
 
 $builder = New-Object Ps2Iso
-$builder.AddFile('', 'SYSTEM.CNF', [Text.Encoding]::ASCII.GetBytes("BOOT2 = cdrom0:\SLUS_999.98;1`r`nVER = 1.00`r`nVMODE = NTSC`r`n"))
-$builder.AddFilePath('', 'SLUS_999.98', (Resolve-Path $Elf).Path)
+$builder.VolumeId = $g.Volume
+$builder.AddFile('', 'SYSTEM.CNF', [Text.Encoding]::ASCII.GetBytes("BOOT2 = cdrom0:\$($g.Id);1`r`nVER = 1.00`r`nVMODE = NTSC`r`n"))
+$builder.AddFilePath('', $g.Id, (Resolve-Path $Elf).Path)
 foreach ($code in $sets.Keys) {
     $src = $sets[$code]
     $files = Get-ChildItem -LiteralPath $src -File | Where-Object { $_.Extension -match '^\.(lvl|ddv)$' -or $_.Name -ieq 'sounds.dat' }
-    if (-not ($files | Where-Object { $_.Name -ieq 'st.lvl' })) { throw "$src does not look like the Abe's Exoddus folder (st.lvl missing)." }
+    if (-not ($files | Where-Object { $_.Name -ieq $g.Probe })) { throw "$src does not look like the $($g.Title) folder ($($g.Probe) missing)." }
     foreach ($f in $files) { $builder.AddFilePath("DATA/$code", $f.Name.ToUpper(), $f.FullName) }
     Write-Host "DATA\$code : $($files.Count) files"
 }

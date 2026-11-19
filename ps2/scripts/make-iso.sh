@@ -1,16 +1,31 @@
 #!/bin/bash
-# Crea una ISO de PS2 del port de Abe's Exoddus, para instalarla en el disco duro con
-# HDL Batch Installer (o ponerla en un USB/SMB) y cargarla con OPL como cualquier juego.
-#   SYSTEM.CNF  -> arranca cdrom0:\SLUS_999.98;1
-#   SLUS_999.98 -> el port (versión para PS2 real: out/usb/EXODDUS.ELF)
+# Crea una ISO de PS2 del port de Abe's Exoddus (o, con GAME=AO, de Abe's Oddysee), para instalarla
+# en el disco duro con HDL Batch Installer (o ponerla en un USB/SMB) y cargarla con OPL como
+# cualquier juego.
+#   SYSTEM.CNF  -> arranca cdrom0:\SLUS_999.98;1 (Oddysee: SLUS_999.97)
+#   SLUS_999.98 -> el port (versión para PS2 real: out/usb/EXODDUS.ELF, Oddysee: out/ao/disc/ODDYSEE.ELF)
 #   DATA\*.LVL, *.DDV, SOUNDS.DAT -> datos del juego de Steam (fuera de la raíz: la PS2 no lee
 #   bien una raíz con ~150 entradas)
 set -e
-GAME="/mnt/c/Program Files (x86)/Steam/steamapps/common/Oddworld Abes Exoddus"
-ELF=${ELF:-/mnt/c/Users/dgvpr/OneDrive/Escritorio/PS2Exoddus/out/usb/EXODDUS.ELF}
-OUTDIR=/mnt/c/Users/dgvpr/PS2Exoddus-ISO
-ID=${ID:-SLUS_999.98}
-ISO="$OUTDIR/$ID.ABE_EXODDUS_PS2.iso"
+if [ "${GAME:-AE}" = "AO" ]; then
+  GAMEDIR="/mnt/c/Program Files (x86)/Steam/steamapps/common/Oddworld Abes Oddysee"
+  ELF=${ELF:-/mnt/c/Users/dgvpr/OneDrive/Escritorio/PS2Exoddus/out/ao/disc/ODDYSEE.ELF}
+  OUTDIR=${OUTDIR:-/mnt/c/Users/dgvpr/PS2Oddysee-ISO}
+  ID=${ID:-SLUS_999.97}
+  ISO="$OUTDIR/$ID.ABE_ODDYSEE_PS2.iso"
+  VOLUME=ABE_ODDYSEE
+  LANGS=${LANGS:-/mnt/c/Users/dgvpr/PS2Oddysee-idiomas}
+  PROBE=s1.lvl # un archivo que tiene que estar en cada carpeta de idioma
+else
+  GAMEDIR="/mnt/c/Program Files (x86)/Steam/steamapps/common/Oddworld Abes Exoddus"
+  ELF=${ELF:-/mnt/c/Users/dgvpr/OneDrive/Escritorio/PS2Exoddus/out/usb/EXODDUS.ELF}
+  OUTDIR=${OUTDIR:-/mnt/c/Users/dgvpr/PS2Exoddus-ISO}
+  ID=${ID:-SLUS_999.98}
+  ISO="$OUTDIR/$ID.ABE_EXODDUS_PS2.iso"
+  VOLUME=ABE_EXODDUS
+  LANGS=${LANGS:-/mnt/c/Users/dgvpr/PS2Exoddus-idiomas}
+  PROBE=st.lvl
+fi
 STAGE=/root/iso_stage
 
 rm -rf "$STAGE" && mkdir -p "$STAGE/DATA" "$OUTDIR"
@@ -22,7 +37,6 @@ cp "$ELF" "$STAGE/$ID"
 # Varios idiomas: si existe $LANGS (carpetas EN, ES, FR, DE, IT con los datos de Steam en ese idioma),
 # cada una va a DATA\<XX>; el juego elige la del idioma de la consola. Los archivos idénticos entre
 # idiomas (músicas, sonidos...) son enlaces duros: genisoimage los guarda una sola vez en el disco.
-LANGS=${LANGS:-/mnt/c/Users/dgvpr/PS2Exoddus-idiomas}
 copy_set() { # $1 origen, $2 destino
   local n=0
   mkdir -p "$2"
@@ -39,9 +53,9 @@ copy_set() { # $1 origen, $2 destino
 }
 langs=0
 for L in EN ES FR DE IT; do
-  if [ -f "$LANGS/$L/st.lvl" ] || [ -f "$LANGS/$L/ST.LVL" ]; then copy_set "$LANGS/$L" "$STAGE/DATA/$L"; langs=$((langs+1)); fi
+  if [ -f "$LANGS/$L/$PROBE" ] || [ -f "$LANGS/$L/${PROBE^^}" ]; then copy_set "$LANGS/$L" "$STAGE/DATA/$L"; langs=$((langs+1)); fi
 done
-[ $langs -gt 0 ] || copy_set "$GAME" "$STAGE/DATA"
+[ $langs -gt 0 ] || copy_set "$GAMEDIR" "$STAGE/DATA"
 
 # Como un disco de PS2 de verdad: SYSTEM.CNF y el ejecutable al principio, solo ISO 9660.
 # En un DVD, la BIOS de la PS2 no lee la tabla de rutas donde dice el descriptor del volumen:
@@ -50,7 +64,7 @@ done
 # PAD.BIN (el primer archivo del disco) y luego se copia ahí la tabla y se apunta el descriptor.
 head -c $((300*2048)) /dev/zero > "$STAGE/PAD.BIN"
 printf '%s 4000\n%s 3000\n%s 2000\n' "$STAGE/PAD.BIN" "$STAGE/SYSTEM.CNF" "$STAGE/$ID" > /root/iso_sort.txt
-genisoimage -quiet -iso-level 1 -cache-inodes -sort /root/iso_sort.txt -V ABE_EXODDUS -sysid PLAYSTATION -A PLAYSTATION -o "$ISO" "$STAGE"
+genisoimage -quiet -iso-level 1 -cache-inodes -sort /root/iso_sort.txt -V $VOLUME -sysid PLAYSTATION -A PLAYSTATION -o "$ISO" "$STAGE"
 python3 - "$ISO" <<'EOF'
 import struct, sys
 f = open(sys.argv[1], "r+b")

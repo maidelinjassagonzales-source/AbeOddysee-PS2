@@ -12,6 +12,9 @@ public class Ps2Iso
 {
     const int S = 2048;
 
+    // ISO 9660 volume name (ABE_EXODDUS, ABE_ODDYSEE...).
+    public string VolumeId = "ABE_EXODDUS";
+
     class Dir
     {
         public string Name; public Dir Parent; public int Number;
@@ -141,7 +144,7 @@ public class Ps2Iso
             // PVD
             var pvd = new byte[S];
             pvd[0] = 1; Text(pvd, 1, 5, "CD001"); pvd[6] = 1;
-            Text(pvd, 8, 32, "PLAYSTATION"); Text(pvd, 40, 32, "ABE_EXODDUS");
+            Text(pvd, 8, 32, "PLAYSTATION"); Text(pvd, 40, 32, VolumeId);
             Both32(pvd, 80, total); Both16(pvd, 120, 1); Both16(pvd, 124, 1); Both16(pvd, 128, S);
             Both32(pvd, 132, (uint)ptSize);
             BitConverter.GetBytes(257u).CopyTo(pvd, 140);
