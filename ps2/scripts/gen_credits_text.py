@@ -1,9 +1,11 @@
 """Genera Ps2CreditsText.hpp: los textos de la intro de créditos como máscaras alfa (8 bits)
-listas para mezclar en la PS2. Uso: python gen_credits_text.py <ruta de salida .hpp>"""
+listas para mezclar en la PS2. Uso: python gen_credits_text.py <ruta de salida .hpp> [ao]
+Con "ao" genera solo el título de Abe's Oddysee (Ps2CreditsTextAO.hpp); el resto de textos es común."""
+import os
 import sys
 from PIL import Image, ImageDraw, ImageFont
 
-FONTS = "C:/Windows/Fonts/"
+FONTS = "C:/Windows/Fonts/" if os.name == "nt" else "/mnt/c/Windows/Fonts/"
 TEXTS = [
     # (identificador, texto, fuente, tamaño)
     ("kTextPortFor", "CREADORES DEL PORT DE PLAYSTATION 2", "trebucbd.ttf", 22),
@@ -11,6 +13,9 @@ TEXTS = [
     ("kTextAnd", "&", "georgiab.ttf", 40),
     ("kTextWilliam", "William_piraton", "georgiab.ttf", 62),
     ("kTextGame", "ODDWORLD: ABE'S EXODDUS", "trebucbd.ttf", 20),
+]
+TEXTS_AO = [
+    ("kTextGameAO", "ODDWORLD: ABE'S ODDYSEE", "trebucbd.ttf", 20),
 ]
 
 
@@ -24,22 +29,27 @@ def render(text, font_file, size):
     return img
 
 
-def main(out_path):
+def main(out_path, texts=TEXTS, with_struct=True):
     lines = [
         "#pragma once",
         "// Generado por scripts/gen_credits_text.py - no editar a mano.",
         "// Textos de la intro de créditos del port de PS2 como máscaras alfa de 8 bits.",
         '#include "Types.hpp"',
         "",
-        "struct Ps2CreditsMask final",
-        "{",
-        "    s32 mWidth;",
-        "    s32 mHeight;",
-        "    const u8* mAlpha;",
-        "};",
-        "",
     ]
-    for name, text, font_file, size in TEXTS:
+    if with_struct:
+        lines += [
+            "struct Ps2CreditsMask final",
+            "{",
+            "    s32 mWidth;",
+            "    s32 mHeight;",
+            "    const u8* mAlpha;",
+            "};",
+            "",
+        ]
+    else:
+        lines += ['#include "Ps2CreditsText.hpp"', ""]
+    for name, text, font_file, size in texts:
         img = render(text, font_file, size)
         data = img.tobytes()
         lines.append(f"// \"{text}\" ({font_file}, {size}px)")
@@ -55,4 +65,7 @@ def main(out_path):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    if len(sys.argv) > 2 and sys.argv[2] == "ao":
+        main(sys.argv[1], TEXTS_AO, False)
+    else:
+        main(sys.argv[1])

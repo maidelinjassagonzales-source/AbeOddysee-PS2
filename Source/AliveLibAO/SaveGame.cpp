@@ -9,6 +9,7 @@
 #include "SaveGame.hpp"
 #include "MusicController.hpp"
 #include "ResourceManager.hpp"
+#include "../AliveLibAE/DebugHelpers.hpp"
 
 namespace AO {
 
@@ -452,9 +453,11 @@ s32 SaveGame::Hash(SaveData* sData)
 
 s16 CC SaveGame::LoadFromFile_459D30(const char_type* name)
 {
-    char_type buffer[40] = {};
+    // Saves live in the preferences folder: the memory card (mc0:/ODDYSEE) on a real PS2, "" = cwd on PC.
+    char_type buffer[80] = {};
 
-    strcpy(buffer, name);
+    strcpy(buffer, FS::GetPrefPath().c_str());
+    strcat(buffer, name);
     strcat(buffer, ".sav");
 
     const auto file = fopen(buffer, "rb");
@@ -488,9 +491,11 @@ s16 CC SaveGame::LoadFromFile_459D30(const char_type* name)
 
 Bool32 CC SaveGame::SaveToFile_45A110(const char_type* name)
 {
-    char_type buffer[40] = {};
+    // Saves live in the preferences folder: the memory card (mc0:/ODDYSEE) on a real PS2, "" = cwd on PC.
+    char_type buffer[80] = {};
 
-    strcpy(buffer, name);
+    strcpy(buffer, FS::GetPrefPath().c_str());
+    strcat(buffer, name);
     strcat(buffer, ".sav");
     const auto file = fopen(buffer, "wb");
     if (!file)

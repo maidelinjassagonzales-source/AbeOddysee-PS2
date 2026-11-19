@@ -153,6 +153,7 @@ SET(AliveLibAESrc
     Ps2Coop.hpp
     Ps2CreditsIntro.hpp
     Ps2CreditsText.hpp
+    Ps2CreditsTextAO.hpp
     CameraSwapper.cpp
     CameraSwapper.hpp
     MainMenuTransition.hpp

@@ -4,6 +4,12 @@
 #ifdef __PS2__
 
     #include "Ps2CreditsText.hpp"
+    #ifdef RELIVE_PS2_AO
+        #include "Ps2CreditsTextAO.hpp"
+        #define kTextGameTitle kTextGameAO // "ODDWORLD: ABE'S ODDYSEE"
+    #else
+        #define kTextGameTitle kTextGame
+    #endif
     #include "Ps2Trace.hpp"
     #include "Renderer/IRenderer.hpp"
     #include <SDL3/SDL.h>
@@ -287,7 +293,7 @@ void Ps2_PlayCreditsIntro()
         DrawText(frame.data(), kTextAroy, 262, Ramp(t, 1.8f, 2.6f), gold, sweep);
         DrawText(frame.data(), kTextAnd, 322, Ramp(t, 2.8f, 3.2f), {220, 180, 110}, sweep);
         DrawText(frame.data(), kTextWilliam, 378, Ramp(t, 3.2f, 4.0f), gold, sweep - 120.0f);
-        DrawText(frame.data(), kTextGame, 445, Ramp(t, 4.5f, 5.0f), {150, 190, 150}, -1000.0f);
+        DrawText(frame.data(), kTextGameTitle, 445, Ramp(t, 4.5f, 5.0f), {150, 190, 150}, -1000.0f);
 
         // Apply the master fade.
         if (master < 0.999f)

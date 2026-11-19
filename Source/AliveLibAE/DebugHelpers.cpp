@@ -2156,9 +2156,15 @@ void DebugHelpers_Init()
     if (!sMade)
     {
         sMade = true;
+    #ifdef RELIVE_PS2_AO
+        mkdir("mc0:/ODDYSEE", 0777);
+    }
+    return "mc0:/ODDYSEE/";
+    #else
         mkdir("mc0:/EXODDUS", 0777);
     }
     return "mc0:/EXODDUS/";
+    #endif
 #elif MOBILE
     s8* prefPath = SDL_GetPrefPath("Oddworld", "Abes Exoddus");
     std::string str = std::string(prefPath);
