@@ -17,7 +17,10 @@ target_compile_features(relive
     PRIVATE cxx_auto_type
     PRIVATE cxx_variadic_templates)
 target_compile_definitions(relive PRIVATE "_CRT_SECURE_NO_WARNINGS")
-if(PS2)
+if(PS2 AND RELIVE_PS2_GAME STREQUAL "AO")
+    # Oddysee only: AliveLibAO brings in just the AliveLibAE parts it shares (renderer, sound, IO).
+    target_link_libraries(relive AliveLibAO AliveLibAE project_warnings)
+elseif(PS2)
     target_link_libraries(relive AliveLibAE project_warnings)
 else()
     target_link_libraries(relive AliveLibAE AliveLibAO project_warnings)
@@ -28,6 +31,8 @@ if(PS2)
     # ps2sdk gives the main thread 128 KB of stack; the engine was written for Windows' 1 MB and
     # overflowed it while loading a level, corrupting memory and freezing the EE.
     target_link_options(relive PRIVATE -Wl,--defsym,_stack_size=0x100000)
+    # Map file (which archive member was pulled in by which symbol): to keep the ELF small.
+    target_link_options(relive PRIVATE -Wl,-Map=${CMAKE_BINARY_DIR}/relive.map)
     if(RELIVE_PS2_HOSTFS)
         # Test builds report any use of semaphore 0 (the kernel topThread's), see Exe.cpp.
         target_link_options(relive PRIVATE -Wl,--wrap=DeleteSema -Wl,--wrap=SignalSema)

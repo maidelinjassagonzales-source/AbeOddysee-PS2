@@ -86,11 +86,20 @@
         }
 #endif
 
+#ifdef __PS2__
+    // PS2: never an injected DLL. Binding the name at link time (instead of in a static initialiser)
+    // lets --gc-sections drop variables nothing uses, e.g. the other game's 5 MB resource heap.
+    #define ALIVE_REDIRECT_ARY(Redirect, Addr, TypeName, VarName) &LocalArray_##VarName[0]
+    #define ALIVE_REDIRECT_VAR(Redirect, Addr, TypeName, VarName) LocalVar_##VarName
+#else
+    #define ALIVE_REDIRECT_ARY(Redirect, Addr, TypeName, VarName) (Redirect && RunningAsInjectedDll()) ? reinterpret_cast<TypeName*>(Addr) : &LocalArray_##VarName[0]
+    #define ALIVE_REDIRECT_VAR(Redirect, Addr, TypeName, VarName) (Redirect && RunningAsInjectedDll()) ? *reinterpret_cast<TypeName*>(Addr) : LocalVar_##VarName
+#endif
 
-#define ALIVE_ARY(Redirect, Addr, TypeName, Size, VarName, ...)                                                                             \
+#define ALIVE_ARY(Redirect, Addr, TypeName, Size, VarName, ...)                                                                            \
     TypeName LocalArray_##VarName[Size] = __VA_ARGS__;                                                                                      \
     AliveVar Var_##VarName(#VarName, Addr, sizeof(LocalArray_##VarName), std::is_pointer<TypeName>::value, std::is_const<TypeName>::value); \
-    TypeName* VarName = (Redirect && RunningAsInjectedDll()) ? reinterpret_cast<TypeName*>(Addr) : &LocalArray_##VarName[0]
+    TypeName* VarName = ALIVE_REDIRECT_ARY(Redirect, Addr, TypeName, VarName)
 
 #define ALIVE_ARY_SIZEOF(VarName) sizeof(LocalArray_##VarName)
 
@@ -103,7 +112,7 @@
 #define ALIVE_VAR(Redirect, Addr, TypeName, VarName, Value)                                                                               \
     TypeName LocalVar_##VarName = Value;                                                                                                  \
     AliveVar Var_##VarName(#VarName, Addr, sizeof(LocalVar_##VarName), std::is_pointer<TypeName>::value, std::is_const<TypeName>::value); \
-    TypeName& VarName = (Redirect && RunningAsInjectedDll()) ? *reinterpret_cast<TypeName*>(Addr) : LocalVar_##VarName
+    TypeName& VarName = ALIVE_REDIRECT_VAR(Redirect, Addr, TypeName, VarName)
 
 
 void CheckVars();

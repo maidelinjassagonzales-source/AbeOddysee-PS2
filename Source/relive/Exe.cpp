@@ -8,8 +8,25 @@
 #endif
 
 #include "../AliveLibAE/WinMain.hpp"
+// PS2: one game per ELF (both engines would not fit in 32 MB). RELIVE_PS2_GAME=AO in CMake builds
+// Abe's Oddysee, the default builds Abe's Exoddus.
 #if !defined(__PS2__)
-    #define RELIVE_WITH_AO 1 // PS2 build ships Exoddus only: Oddysee's engine would cost ~7 MB of the 32 MB RAM
+    #define RELIVE_WITH_AO 1
+    #define RELIVE_WITH_AE 1
+#elif defined(RELIVE_PS2_AO)
+    #define RELIVE_WITH_AO 1
+    #define RELIVE_WITH_AE 0
+#else
+    #define RELIVE_WITH_AE 1
+#endif
+#ifdef RELIVE_PS2_AO
+    #define PS2_PROBE_LVL "s1.lvl" // a file whose presence says the game data is reachable
+    #define PS2_PROBE_LVL2 "r1.lvl"
+    #define PS2_GAME_TITLE "ABE'S ODDYSEE"
+#else
+    #define PS2_PROBE_LVL "st.lvl"
+    #define PS2_PROBE_LVL2 "mi.lvl"
+    #define PS2_GAME_TITLE "ABE'S EXODDUS"
 #endif
 #if RELIVE_WITH_AO
 #include "../AliveLibAO/WinMain.hpp"
@@ -90,7 +107,7 @@ static void Ps2ShowReportScreen(const char_type* title)
     #ifndef RELIVE_PS2_HOSTFS
     init_scr();
     scr_setCursor(0);
-    scr_printf("\n  ABE'S EXODDUS PS2 - INFORME DE ERROR (haz una foto)\n  %s\n\n", title);
+    scr_printf("\n  " PS2_GAME_TITLE " PS2 - INFORME DE ERROR (haz una foto)\n  %s\n\n", title);
     const u32 pos = sLogPos;
     const u32 count = pos < kLogLines ? pos : kLogLines;
     for (u32 i = pos - count; i != pos; i++)
@@ -576,9 +593,11 @@ void operator delete(void* p, size_t) noexcept
 #endif
 #include "Sys_common.hpp"
 
+#if RELIVE_WITH_AE
 #include "../AliveLibAE/Map.hpp"
 #include "../AliveLibAE/Font.hpp"
 #include "../AliveLibAE/Abe.hpp"
+#endif
 
 #if RELIVE_WITH_AO
 #include "../AliveLibAO/Map.hpp"
@@ -588,12 +607,16 @@ void operator delete(void* p, size_t) noexcept
 #include "../AliveLibAO/SwitchStates.hpp"
 #endif
 
+#if RELIVE_WITH_AE
 #include "../AliveLibAE/GameAutoPlayer.hpp"
+#else
+#include "BaseGameAutoPlayer.hpp"
+#endif
 #if RELIVE_WITH_AO
 #include "../AliveLibAO/GameAutoPlayer.hpp"
 #endif
 
-#include "Io.hpp"
+#include "../AliveLibAE/Io.hpp"
 
 enum class GameType : s32
 {
@@ -623,6 +646,7 @@ struct AOGameInfo
 };
 #endif
 
+#if RELIVE_WITH_AE
 struct AEGameInfo
 {
     GuidStr guid;
@@ -637,6 +661,7 @@ struct AEGameInfo
     s32 abeYOffSet;     // 7
     s8* isPaused;       // 8
 };
+#endif
 
 extern "C"
 {
@@ -803,11 +828,13 @@ static BaseGameAutoPlayer& GetGameAutoPlayerAO()
 }
 #endif
 
+#if RELIVE_WITH_AE
 static BaseGameAutoPlayer& GetGameAutoPlayerAE()
 {
     static GameAutoPlayer autoPlayer;
     return autoPlayer;
 }
+#endif
 
 static BaseGameAutoPlayer* pAutoPlayer = nullptr;
 
@@ -826,6 +853,7 @@ static s32 AOMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 }
 #endif
 
+#if RELIVE_WITH_AE
 static s32 AEMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, s32 nShowCmd)
 {
     LOG_INFO("AE standalone starting...");
@@ -834,6 +862,7 @@ static s32 AEMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
     PopulateAutoSplitterVars(GameType::eAe);
     return WinMain_4EE631(hInstance, hPrevInstance, lpCmdLine, nShowCmd);
 }
+#endif
 
 s32 WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, s32 nShowCmd)
 {
@@ -850,7 +879,16 @@ s32 WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 #endif
     LOG_INFO("Relive: " << BuildAndBitnesString());
 
-#if !RELIVE_WITH_AO
+#if !RELIVE_WITH_AE
+    // PS2 Oddysee build: only Abe's Oddysee is linked in.
+    ShowCwd();
+    if (!CheckRequiredGameFilesExist(GameType::eAo, true))
+    {
+        return 1;
+    }
+    pAutoPlayer = &GetGameAutoPlayerAO();
+    return AOMain(hInstance, hPrevInstance, lpCmdLine, nShowCmd);
+#elif !RELIVE_WITH_AO
     ShowCwd();
     if (!CheckRequiredGameFilesExist(GameType::eAe, true))
     {
@@ -945,9 +983,9 @@ s32 main(s32 argc, char_type** argv)
         for (s32 l = 0; l < 4 && fromDisc && !found; l++)
         {
             gPs2DiscDataPrefix = langPrefix[l];
-            found = FileExists("st.lvl");
+            found = FileExists(PS2_PROBE_LVL);
         }
-        if (found || (!fromDisc && FileExists("st.lvl")))
+        if (found || (!fromDisc && FileExists(PS2_PROBE_LVL)))
         {
             break;
         }
@@ -959,8 +997,8 @@ s32 main(s32 argc, char_type** argv)
     }
     {
         extern const char_type* gPs2DiscDataPrefix;
-        Ps2Report("[relive-ps2] argv0 '%s' data prefix '%s' st.lvl %s mi.lvl %s\n", argc > 0 ? argv[0] : "", gPs2DiscDataPrefix,
-                  FileExists("st.lvl") ? "found" : "MISSING", FileExists("mi.lvl") ? "found" : "MISSING");
+        Ps2Report("[relive-ps2] argv0 '%s' data prefix '%s' probe %s %s\n", argc > 0 ? argv[0] : "", gPs2DiscDataPrefix,
+                  FileExists(PS2_PROBE_LVL) ? "found" : "MISSING", FileExists(PS2_PROBE_LVL2) ? "found" : "MISSING");
     }
     #endif
     // The EE scheduler is strictly priority based: a thread only runs while every higher priority

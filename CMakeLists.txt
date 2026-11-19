@@ -67,6 +67,18 @@ if(PS2)
     if(RELIVE_PS2_HOSTFS)
         add_compile_definitions(RELIVE_PS2_HOSTFS RELIVE_PS2_PROFILE)
     endif()
+    # Which game this PS2 build carries: AE (Abe's Exoddus) or AO (Abe's Oddysee). Only one engine
+    # fits in the 32 MB of RAM, so each game is its own ELF and its own disc.
+    set(RELIVE_PS2_GAME "AE" CACHE STRING "PS2 build: AE (Exoddus) or AO (Oddysee)")
+    set_property(CACHE RELIVE_PS2_GAME PROPERTY STRINGS AE AO)
+    if(RELIVE_PS2_GAME STREQUAL "AO")
+        add_compile_definitions(RELIVE_PS2_AO)
+        # AliveLibAO calls into AliveLibAE for the shared engine parts, and each AE object file
+        # drags in more of the Exoddus game (its 5 MB resource heap, paths, objects...). Linking
+        # per function/data item and dropping what is unreachable keeps only what Oddysee uses.
+        add_compile_options(-ffunction-sections -fdata-sections)
+        add_link_options(-Wl,--gc-sections)
+    endif()
     # Diagnostics for real-console builds: step trace over the EE serial port.
     option(RELIVE_PS2_DISCTRACE "Serial step trace in real-console builds" OFF)
     if(RELIVE_PS2_DISCTRACE)
