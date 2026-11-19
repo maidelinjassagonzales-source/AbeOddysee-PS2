@@ -8,6 +8,24 @@ descompilación [R.E.L.I.V.E.](https://github.com/AliveTeam/alive_reversing) (Al
 > Este repositorio contiene **solo código**. No incluye ningún archivo del juego.
 > Para jugar necesitas tu propia copia de Abe's Exoddus para PC (por ejemplo, la de Steam).
 
+## Abe's Oddysee para PS2 (nuevo)
+
+El mismo port, ahora también para **Oddworld: Abe's Oddysee** (Steam, appid 15700), con todo lo de
+la versión de Exoddus: 60 FPS interpolados, cooperativo de 2 jugadores con dos Abes (el jugador 2
+pulsa START en el mando 2, puede cantar y poseer, mantiene START para salir), intro de créditos del
+port, colores del GS, mezclador de audio propio, vibración, lectura anticipada de las cinemáticas,
+partidas en la tarjeta de memoria (`mc0:/ODDYSEE`), varios idiomas (`DATA/EN`, `ES`, `FR`, `DE`,
+`IT`) y funciona en OPL.
+
+- Cada juego es un ELF y un disco distintos (los dos motores juntos no caben en los 32 MB):
+  Oddysee se compila con `-DRELIVE_PS2_GAME=AO` (`ps2/scripts/build-ps2-ao.sh`, y
+  `build-ps2-ao.sh disc` para consola real/ISO). Por defecto se sigue compilando Exoddus.
+- Disco: `SLUS_999.97`, volumen `ABE_ODDYSEE`. `GAME=AO make-iso.sh` o, en Windows, `CrearISO.bat`
+  con `ODDYSEE.ELF` al lado (detecta el juego por el ELF; también `-Juego AO`).
+- Las cinemáticas de Oddysee (formato de PSX: MDEC + XA) iban a 4 fps porque el decodificador usaba
+  `double`, que el EE emula por software. Ahora van a sus 15 fps.
+- RAM: el ELF ocupa 15,4 MB; jugando en Rupture Farms quedan ~4,7 MB libres.
+
 ## Updates
 
 ### v1.1 (13-11-2026)
